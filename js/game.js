@@ -54,15 +54,53 @@ function playerPlaysCard(card) {
 // ===============================
 
 function playCard(player, card) {
+  // Safety check: carta null?
+  if (!card) {
+    console.error("[playCard] Carta null per player", player);
+    // Se la IA non riesce a scegliere, prendi la prima carta disponibile
+    if (player !== "me") {
+      const hand = GAME_STATE.hands[player];
+      if (hand && hand.length > 0) {
+        card = hand[0];
+        console.warn("[playCard] Fallback: prendo prima carta disponibile per", player);
+      } else {
+        console.error("[playCard] Nessuna carta disponibile per", player);
+        return;
+      }
+    } else {
+      console.error("[playCard] Carta non valida per il giocatore");
+      showToast("❌ Seleziona una carta valida", "error");
+      return;
+    }
+  }
+
   // Validazione stato
   if (!validateGameState()) {
     recoverFromCorruptedState();
     return;
   }
 
+  // Safety check: verifica che la carta esista
+  if (!card.suit || card.rankId === undefined) {
+    console.error("[playCard] Carta invalida:", card);
+    showToast("❌ Carta invalida", "error");
+    return;
+  }
+
   const hand = GAME_STATE.hands[player];
-  const idx = hand.indexOf(card);
-  if (idx !== -1) hand.splice(idx, 1);
+  
+  // Trova la carta nella mano per proprietà (non per reference)
+  const idx = hand.findIndex(c => 
+    c.suit === card.suit && c.rankId === card.rankId
+  );
+  
+  if (idx !== -1) {
+    hand.splice(idx, 1);
+  } else {
+    console.error("[playCard] Carta non trovata in mano:", card, hand);
+    showToast("❌ Carta non in mano!", "error");
+    return;
+  }
 
   GAME_STATE.currentTrick.cards[player] = card;
 

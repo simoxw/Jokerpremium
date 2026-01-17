@@ -168,9 +168,16 @@ function showInfoToast(message) {
  */
 function notifyCardPlayed(player, card) {
   if (player === "me") return; // Non notificare il giocatore stesso
+  
+  if (!card || !card.rank || !card.suit) {
+    console.error("[notifyCardPlayed] Carta invalida:", card);
+    return;
+  }
 
   const playerName = player === "ai1" ? "IA 1" : "IA 2";
-  showToast(`${playerName} ha giocato ${card.rank} di ${card.suit.charAt(0).toUpperCase() + card.suit.slice(1)}`, "info", 1500);
+  const suitName = card.suit.charAt(0).toUpperCase() + card.suit.slice(1);
+  const rankName = card.rank.charAt(0).toUpperCase() + card.rank.slice(1);
+  showToast(`${playerName} ha giocato ${rankName} di ${suitName}`, "info", 1500);
 }
 
 function notifyTrickWinner(winner) {

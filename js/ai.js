@@ -39,16 +39,32 @@ const AI_MEMORY = {
 function aiChooseCard(player) {
   const hand = GAME_STATE.hands[player];
   
+  // Safety check: mano vuota?
+  if (!hand || hand.length === 0) {
+    console.error("[aiChooseCard] Mano vuota per", player, hand);
+    return null;
+  }
+  
   // Sincronizza la difficoltà globale
   const difficulty = window.AI_DIFFICULTY || "hard";
 
+  let card = null;
+  
   if (difficulty === "intermediate") {
-    return aiIntermediate(hand, player);
+    card = aiIntermediate(hand, player);
   } else if (difficulty === "hard") {
-    return aiHard(hand, player);
+    card = aiHard(hand, player);
   } else {
-    return aiExpert(hand, player);
+    card = aiExpert(hand, player);
   }
+  
+  // Safety: se nessuna funzione ritorna carta, prendi la prima disponibile
+  if (!card || !card.suit || !card.rankId || card.rankId === undefined) {
+    console.warn("[aiChooseCard] Carta non valida ritornata, fallback a hand[0]");
+    card = hand[0];
+  }
+  
+  return card;
 }
 
 // =====================================================
@@ -318,10 +334,19 @@ function aiHardAsJoker(hand, player, position, trickValue, briscola) {
   // PRIMO: Scarica strategico
   if (position === 0) {
     // Preferenza: scarto < punti bassi < carte medie < briscole
-    if (scarti.length > 0) return sortByOrderAsc(scarti)[0];
-    if (lowPoints.length > 0) return sortByOrderAsc(lowPoints)[0];
-    if (nonBriscolas.length > 1) return sortByPointsAsc(nonBriscolas.slice(0, -1))[0];
-    return sortByOrderAsc(briscolas)[0];
+    if (scarti.length > 0) {
+      const card = sortByOrderAsc(scarti)[0];
+      if (card) return card;
+    }
+    if (lowPoints.length > 0) {
+      const card = sortByOrderAsc(lowPoints)[0];
+      if (card) return card;
+    }
+    if (nonBriscolas.length > 1) {
+      const card = sortByPointsAsc(nonBriscolas.slice(0, -1))[0];
+      if (card) return card;
+    }
+    return sortByOrderAsc(briscolas)[0] || hand[0];
   }
 
   // SECONDO/TERZO: Valuta convenienza
@@ -348,11 +373,20 @@ function aiHardAsJoker(hand, player, position, trickValue, briscola) {
   }
 
   // Non conviene vincere: scarica basso
-  if (scarti.length > 0) return sortByOrderAsc(scarti)[0];
-  if (lowPoints.length > 0) return sortByOrderAsc(lowPoints)[0];
-  if (nonBriscolas.length > 0) return sortByPointsAsc(nonBriscolas)[0];
+  if (scarti.length > 0) {
+    const card = sortByOrderAsc(scarti)[0];
+    if (card) return card;
+  }
+  if (lowPoints.length > 0) {
+    const card = sortByOrderAsc(lowPoints)[0];
+    if (card) return card;
+  }
+  if (nonBriscolas.length > 0) {
+    const card = sortByPointsAsc(nonBriscolas)[0];
+    if (card) return card;
+  }
   
-  return sortByOrderAsc(briscolas)[0];
+  return sortByOrderAsc(briscolas)[0] || hand[0];
 }
 
 /**
@@ -384,9 +418,15 @@ function aiHardAsAlly(hand, player, position, trickValue, briscola) {
   // PRIMO: Scarica conservativo
   if (position === 0) {
     // Preferenza: scarto < carta bassa non-briscola
-    if (scarti.length > 0) return sortByOrderAsc(scarti)[0];
-    if (nonBriscolas.length > 0) return sortByPointsAsc(nonBriscolas)[0];
-    return sortByOrderAsc(briscolas)[0];
+    if (scarti.length > 0) {
+      const card = sortByOrderAsc(scarti)[0];
+      if (card) return card;
+    }
+    if (nonBriscolas.length > 0) {
+      const card = sortByPointsAsc(nonBriscolas)[0];
+      if (card) return card;
+    }
+    return sortByOrderAsc(briscolas)[0] || hand[0];
   }
 
   // SECONDO/TERZO: Strategia dinamica
@@ -394,11 +434,17 @@ function aiHardAsAlly(hand, player, position, trickValue, briscola) {
   // CASO 1: Compagno sta vincendo → NON supera, supporta passivo
   if (currentWinner === myAlly) {
     // Butta qualcosa basso, non spendere risorse
-    if (scarti.length > 0) return sortByOrderAsc(scarti)[0];
+    if (scarti.length > 0) {
+      const card = sortByOrderAsc(scarti)[0];
+      if (card) return card;
+    }
     const lowCards = nonBriscolas.filter(c => c.points <= 1);
-    if (lowCards.length > 0) return sortByOrderAsc(lowCards)[0];
+    if (lowCards.length > 0) {
+      const card = sortByOrderAsc(lowCards)[0];
+      if (card) return card;
+    }
     // Se costretti, butta briscola bassa
-    return sortByOrderAsc(briscolas)[0];
+    return sortByOrderAsc(briscolas)[0] || hand[0];
   }
 
   // CASO 2: Joker sta vincendo → TAGLIA se conviene
@@ -424,11 +470,17 @@ function aiHardAsAlly(hand, player, position, trickValue, briscola) {
   }
 
   // Default: scarica basso
-  if (scarti.length > 0) return sortByOrderAsc(scarti)[0];
+  if (scarti.length > 0) {
+    const card = sortByOrderAsc(scarti)[0];
+    if (card) return card;
+  }
   const lowCards = nonBriscolas.filter(c => c.points <= 1);
-  if (lowCards.length > 0) return sortByOrderAsc(lowCards)[0];
+  if (lowCards.length > 0) {
+    const card = sortByOrderAsc(lowCards)[0];
+    if (card) return card;
+  }
   
-  return sortByOrderAsc(briscolas)[0];
+  return sortByOrderAsc(briscolas)[0] || hand[0];
 }
 
 /**
@@ -448,11 +500,20 @@ function aiHardAsNeutral(hand, player, position, trickValue, briscola) {
   // PRIMO: CRUCIALE - Non giocare briscola! Rischio di diventare Joker
   if (position === 0) {
     // Preferenza: scarto > punto basso > punto alto > briscola ultima
-    if (scarti.length > 0) return sortByOrderAsc(scarti)[0];
-    if (lowPoints.length > 0) return sortByPointsAsc(lowPoints)[0];
-    if (nonBriscolas.length > 1) return sortByPointsAsc(nonBriscolas.slice(0, -1))[0];
+    if (scarti.length > 0) {
+      const card = sortByOrderAsc(scarti)[0];
+      if (card) return card;
+    }
+    if (lowPoints.length > 0) {
+      const card = sortByPointsAsc(lowPoints)[0];
+      if (card) return card;
+    }
+    if (nonBriscolas.length > 1) {
+      const card = sortByPointsAsc(nonBriscolas.slice(0, -1))[0];
+      if (card) return card;
+    }
     // Worst case: briscola più bassa
-    return sortByOrderAsc(briscolas)[0];
+    return sortByOrderAsc(briscolas)[0] || hand[0];
   }
 
   // SECONDO/TERZO: Valuta cautamente
@@ -467,18 +528,33 @@ function aiHardAsNeutral(hand, player, position, trickValue, briscola) {
   if (trickValue >= 15 && canWin.length > 0) {
     // Preferisci vincere con non-briscola
     const nonBriscolaWins = canWin.filter(c => c.suit !== briscola);
-    if (nonBriscolaWins.length > 0) return sortByPointsDesc(nonBriscolaWins)[0];
+    if (nonBriscolaWins.length > 0) {
+      const card = sortByPointsDesc(nonBriscolaWins)[0];
+      if (card) return card;
+    }
     // Se serve briscola, usa la minima
     const briscolaWins = canWin.filter(c => c.suit === briscola);
-    if (briscolaWins.length > 0) return sortByOrderAsc(briscolaWins)[0];
+    if (briscolaWins.length > 0) {
+      const card = sortByOrderAsc(briscolaWins)[0];
+      if (card) return card;
+    }
   }
 
   // Default: scarica basso (non spendere risorse)
-  if (scarti.length > 0) return sortByOrderAsc(scarti)[0];
-  if (lowPoints.length > 0) return sortByPointsAsc(lowPoints)[0];
-  if (nonBriscolas.length > 0) return sortByPointsAsc(nonBriscolas)[0];
+  if (scarti.length > 0) {
+    const card = sortByOrderAsc(scarti)[0];
+    if (card) return card;
+  }
+  if (lowPoints.length > 0) {
+    const card = sortByPointsAsc(lowPoints)[0];
+    if (card) return card;
+  }
+  if (nonBriscolas.length > 0) {
+    const card = sortByPointsAsc(nonBriscolas)[0];
+    if (card) return card;
+  }
   
-  return sortByOrderAsc(briscolas)[0];
+  return sortByOrderAsc(briscolas)[0] || hand[0];
 }
 
 // =====================================================
