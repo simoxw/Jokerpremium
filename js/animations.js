@@ -118,3 +118,46 @@ function animateHandTransition() {
     container.style.opacity = "1";
   }, 300);
 }
+
+/**
+ * Floating Score - Feedback immediato punti guadagnati
+ * Mostra un numero che vola verso l'alto quando si guadagnano punti
+ */
+function showFloatingScore(points, element, playerId = "me") {
+  if (!element || points <= 0) return;
+  
+  const rect = element.getBoundingClientRect();
+  const floatingScore = document.createElement("div");
+  
+  floatingScore.textContent = `+${points}`;
+  floatingScore.style.position = "fixed";
+  floatingScore.style.left = `${rect.left + rect.width / 2}px`;
+  floatingScore.style.top = `${rect.top}px`;
+  floatingScore.style.color = "#4ade80"; // Verde per punti guadagnati
+  floatingScore.style.fontSize = "24px";
+  floatingScore.style.fontWeight = "bold";
+  floatingScore.style.pointerEvents = "none";
+  floatingScore.style.zIndex = "10000";
+  floatingScore.style.textShadow = "0 2px 4px rgba(0,0,0,0.8)";
+  floatingScore.style.transition = "all 1s ease-out";
+  floatingScore.style.opacity = "1";
+  floatingScore.style.transform = "translateY(0) scale(1)";
+  
+  document.body.appendChild(floatingScore);
+  
+  // Force reflow
+  void floatingScore.offsetHeight;
+  
+  // Animazione: vola verso l'alto e scompare
+  setTimeout(() => {
+    floatingScore.style.transform = "translateY(-60px) scale(1.2)";
+    floatingScore.style.opacity = "0";
+  }, 10);
+  
+  // Rimuovi elemento dopo animazione
+  setTimeout(() => {
+    if (floatingScore.parentNode) {
+      floatingScore.parentNode.removeChild(floatingScore);
+    }
+  }, 1000);
+}

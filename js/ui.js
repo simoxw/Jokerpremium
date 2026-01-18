@@ -44,6 +44,11 @@ function renderPlayerHand() {
     if (isMyTurn) {
       el.classList.add("clickable");
       el.onclick = () => playerPlaysCard(card);
+      
+      // Suono hover leggero premium
+      el.addEventListener("mouseenter", () => {
+        playSound("hover");
+      });
     }
 
     row.appendChild(el);
@@ -67,7 +72,15 @@ function renderBriscola() {
   slot.innerHTML = "";
 
   if (GAME_STATE.briscolaCard) {
-    slot.appendChild(renderCardImage(GAME_STATE.briscolaCard));
+    const cardEl = renderCardImage(GAME_STATE.briscolaCard);
+    slot.appendChild(cardEl);
+
+    // Aggiungi glow animato alla briscola
+    if (window.PHASER_ENGINE) {
+      setTimeout(() => {
+        PHASER_ENGINE.addBriscolaGlow(slot);
+      }, 100);
+    }
   }
 }
 
@@ -103,12 +116,12 @@ function renderHandScore() {
 }
 
 // ===============================
-// RENDER CARTA (MODIFICATO CON CACHE)
+// RENDER CARTA (MODIFICATO CON CACHE + PHASER)
 // ===============================
 
 function renderCardImage(card) {
   const wrapper = document.createElement("div");
-  wrapper.classList.add("card", "card-image");
+  wrapper.classList.add("card", "card-image", "card-interactive");
 
   const src = `assets/cards/${card.suit}/${card.file}.png`;
   const img = loadCardImage(src).cloneNode();
@@ -117,6 +130,14 @@ function renderCardImage(card) {
   img.alt = describeCard(card);
 
   wrapper.appendChild(img);
+
+  // Attiva animazioni Phaser se disponibile
+  if (window.PHASER_ENGINE) {
+    setTimeout(() => {
+      PHASER_ENGINE.activateCardHover(wrapper);
+    }, 100);
+  }
+
   return wrapper;
 }
 

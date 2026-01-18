@@ -13,10 +13,10 @@ function startSingleGame() {
   GAME_STATE.trickHistory = [];
 
   // Reset AI memory per nuova partita
-  if (window.AI_MEMORY) {
+  if (typeof AI_MEMORY !== "undefined") {
     AI_MEMORY.cardsPlayed = { me: [], ai1: [], ai2: [] };
     AI_MEMORY.briscolesPlayed = [];
-    AI_MEMORY.allyCoordinationSignal = null;
+    AI_MEMORY.predictedHands = { me: [], ai1: [], ai2: [] };
   }
 
   clearAllJokers();
@@ -104,6 +104,11 @@ function playCard(player, card) {
 
   GAME_STATE.currentTrick.cards[player] = card;
 
+  // Registra carta in memoria IA (per tutte le difficoltà)
+  if (typeof recordCardPlayed === "function") {
+    recordCardPlayed(player, card);
+  }
+
   // Audio feedback
   playSound("card-play");
 
@@ -165,6 +170,11 @@ function resolveTrick() {
   if (played.ai1) GAME_STATE.tricksWon[winner].push(played.ai1);
   if (played.ai2) GAME_STATE.tricksWon[winner].push(played.ai2);
 
+  // Calcola punti guadagnati in questa presa (somma dei punti delle carte)
+  const trickPoints = (played.me ? played.me.points : 0) + 
+                      (played.ai1 ? played.ai1.points : 0) + 
+                      (played.ai2 ? played.ai2.points : 0);
+  
   const scores = calculateSingleGameScores();
   
   // Registra statistiche
@@ -173,6 +183,17 @@ function resolveTrick() {
   // Audio e notifica vittoria presa
   playSound("card-win");
   notifyTrickWinner(winner);
+  
+  // Floating score per punti guadagnati (solo se ci sono punti)
+  if (trickPoints > 0) {
+    const winnerSlot = document.getElementById(`played-${winner}`);
+    if (winnerSlot) {
+      setTimeout(() => {
+        showFloatingScore(trickPoints, winnerSlot, winner);
+      }, 300);
+    }
+  }
+  
   GAME_STATE.trickHistory.push({
     winner: winner,
     cards: { ...played },
@@ -180,18 +201,49 @@ function resolveTrick() {
   });
 
   const btn = document.getElementById("nextHandBtn");
-  btn.style.display = "inline-block";
-  btn.onclick = advanceToNextHand;
+  if (btn) {
+    btn.style.display = "inline-block";
+    btn.onclick = advanceToNextHand;
+    
+    // Pulsante pronto con glow effect
+    if (typeof markButtonReady === "function") {
+      markButtonReady("nextHandBtn");
+    }
+  }
 }
 
-// 🔥 MODIFICATO: highlight persistente
+// 🔥 MODIFICATO: highlight persistente + particelle premium
 function highlightWinnerCard(winner) {
   const slot = document.getElementById(`played-${winner}`);
   slot.classList.add("winner-highlight");
+
+  // Aggiungi animazione flip della carta
+  const cardElement = slot.querySelector(".card-image");
+  if (cardElement) {
+    cardElement.style.animation = "cardFlip 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards";
+  }
+
+  // Emetti particelle di vittoria con Phaser
+  if (window.PHASER_ENGINE && slot) {
+    const rect = slot.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    
+    // Colore diverse per ogni giocatore
+    const colors = {
+      me: "#FFD700",      // Oro per il giocatore
+      ai1: "#FF6B9D",     // Rosa per IA1
+      ai2: "#4ECDC4"      // Turchese per IA2
+    };
+    
+    PHASER_ENGINE.emitWinParticles(x, y, colors[winner] || "#FFD700");
+  }
 }
 
 function advanceToNextHand() {
-  document.getElementById("nextHandBtn").style.display = "none";
+  const btn = document.getElementById("nextHandBtn");
+  btn.style.display = "none";
+  unmarkButtonReady("nextHandBtn");
 
   // 🔥 Rimuove highlight persistente della presa precedente
   document.getElementById("played-me").classList.remove("winner-highlight");
@@ -209,10 +261,20 @@ function advanceToNextHand() {
     if (GAME_STATE.deck.length > 0) {
       const card = GAME_STATE.deck.shift();
       GAME_STATE.hands[player].push(card);
+      
+      // Suono pescare carta (pop.mp3 delicato)
+      if (player === "me") {
+        playSound("draw");
+      }
     }
     else if (GAME_STATE.deck.length === 0 && GAME_STATE.briscolaCard) {
       GAME_STATE.hands[player].push(GAME_STATE.briscolaCard);
       GAME_STATE.briscolaCard = null;
+      
+      // Suono pescare carta (pop.mp3 delicato)
+      if (player === "me") {
+        playSound("draw");
+      }
     }
   }
 
@@ -273,17 +335,51 @@ function endSingleGame() {
   const result = determineSingleGameWinner(scores);
 
   let message = "";
+  let isVictory = false;
+  let isDefeat = false;
 
   if (result === "joker") {
     message = `Il Joker (${GAME_STATE.jokerPlayer}) ha vinto!`;
+    const oldMatchScore = GAME_STATE.matchScore[GAME_STATE.jokerPlayer];
     GAME_STATE.matchScore[GAME_STATE.jokerPlayer] += 2;
+    isVictory = GAME_STATE.jokerPlayer === "me";
+    isDefeat = GAME_STATE.jokerPlayer !== "me";
+    
+    // Floating score per punti partita guadagnati
+    if (GAME_STATE.jokerPlayer === "me") {
+      const scoreElement = document.getElementById("score-me");
+      if (scoreElement) {
+        setTimeout(() => {
+          showFloatingScore(2, scoreElement, "me");
+        }, 500);
+      }
+    }
   } else if (result === "allies") {
     const allies = TURN_ORDER.filter(p => p !== GAME_STATE.jokerPlayer);
     message = `Gli alleati (${allies.join(" + ")}) hanno vinto!`;
     GAME_STATE.matchScore[allies[0]] += 1;
     GAME_STATE.matchScore[allies[1]] += 1;
+    isVictory = allies.includes("me");
+    isDefeat = !allies.includes("me");
+    
+    // Floating score per punti partita guadagnati
+    if (allies.includes("me")) {
+      const scoreElement = document.getElementById("score-me");
+      if (scoreElement) {
+        setTimeout(() => {
+          showFloatingScore(1, scoreElement, "me");
+        }, 500);
+      }
+    }
   } else {
     message = "Pareggio tecnico.";
+  }
+
+  // Suoni vittoria/sconfitta
+  if (isVictory) {
+    playSound("victory");
+  } else if (isDefeat) {
+    playSound("defeat");
   }
 
   renderUI();
@@ -312,6 +408,13 @@ function checkEndOfMatch() {
 }
 
 function showEndMatchPanel(winner) {
+  // Suoni vittoria/sconfitta per partita generale
+  if (winner === "me") {
+    playSound("victory");
+  } else {
+    playSound("defeat");
+  }
+  
   const panel = document.createElement("div");
   panel.style.position = "fixed";
   panel.style.top = "0";
