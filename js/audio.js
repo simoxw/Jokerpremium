@@ -148,11 +148,12 @@ function createAudioElement(soundName) {
 
   const audio = new Audio();
   
-  // Mappa suoni base (data URIs)
+  // Mappa suoni base (data URIs e file audio)
   const soundMap = {
-    "card-play": "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==",
+    "card-play": "assets/sounds/carddrop2-92718.mp3",
     "card-win": "data:audio/wav;base64,UklGRjYAAABXQVZFZm10IBAAAAABAAEAQB8AAADdAAAAIgAZAEEAOgBIAEgAOgA+ADQAIgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYA",
     "card-flip": "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==",
+    "hover": "assets/sounds/pageturn-102978.mp3",
     "hand-end": "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA=="
   };
 
@@ -171,7 +172,6 @@ function playSound(soundName) {
   
   // Suoni generati programmaticamente
   const programmaticSounds = {
-    "hover": generateWhooshSound,
     "victory": generateDingSound,
     "defeat": generateBlipSound,
     "draw": generatePopSound
